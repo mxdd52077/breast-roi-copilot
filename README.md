@@ -1,8 +1,8 @@
-# Breast ROI Copilot
+# 乳腺筛查 ROI 智能决策平台
 
-A Streamlit decision-support application migrated from `breast_with_baseline_delta.R`. The deterministic ROI mathematics lives in `src/models/breast_roi.py`. A separate Evidence Search page retrieves real PubMed records through NCBI E-utilities; it does not use an LLM or RAG.
+这是一个由 `breast_with_baseline_delta.R` 迁移而来的 Streamlit 决策支持应用。确定性的 ROI 计算逻辑位于 `src/models/breast_roi.py`。平台还支持检索真实 PubMed 文献，并使用 AI 完成循证总结和管理层报告生成；大模型不参与 ROI 数学计算，也不能自动修改模型参数。
 
-## Run
+## 本地运行
 
 ```bash
 cd breast_roi_copilot
@@ -12,61 +12,126 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Run tests with `pytest -q`.
+运行测试：
 
-## Evidence Search
+```bash
+pytest -q
+```
 
-Open **Evidence search** in the top navigation. Enter medical keywords and select **Search PubMed** to retrieve up to five live records. The page displays article metadata, PMID, abstract, and a direct PubMed link. If internet access is unavailable, select the explicitly labeled offline demo mode. No API key is required for this small-volume prototype; the client makes two requests per search and caches results for one hour.
+## AI 决策助手
 
-## Evidence Analyst
+**AI 决策助手**是普通用户的主要入口。用户可以用自然语言描述医院场景，系统将已知信息解析为结构化 ROI 参数，并检查缺失项。需要外部证据时，系统可检索相关 PubMed 文献；参数只有经过人工确认后才能进入确定性 ROI 模型。完成计算后，用户可以生成面向管理层的报告草稿，并查看详细证据与计算过程。
 
-Open **Evidence analyst** to run the no-key verified demo or analyze the current live PubMed results with an optional OpenAI API key. Every displayed live answer must pass deterministic validation: cited PMIDs must match the current result set and each evidence excerpt must occur in a cited abstract. The LLM never performs or modifies ROI calculations.
+推荐使用流程：
 
-To enable live AI mode, copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml`, replace the placeholder key, and restart Streamlit. The real secrets file is ignored by Git. Demo mode requires no key and no LLM request.
+1. 提供或上传医院数据；
+2. 检查缺失参数；
+3. 根据参数类型补充合适来源；
+4. 人工确认参数；
+5. 调用原 R 模型迁移后的确定性公式计算 ROI；
+6. 生成并审核管理层报告。
 
-## Effect-size extraction and Care Gap Value Library
+## PubMed 证据检索
 
-The **Evidence extraction** page converts one PubMed abstract into a structured AI candidate covering study design, population, intervention, comparator, outcome, effect measure, confidence interval, ROI parameter mapping, and limitations. PMID, title, excerpt, and reported numbers are validated locally. A human reviewer must add a note and explicitly approve or reject the candidate.
+在顶部导航中进入**证据与价值库**，输入医学关键词后搜索 PubMed。系统通过 NCBI E-utilities 接口获取真实文献，并展示标题、作者、年份、期刊、PMID、摘要及 PubMed 原文链接。
 
-Reviews are saved to `data/care_gap_value_library.csv` and appended to `data/care_gap_audit.jsonl`. The **Care Gap library** page displays governance status and evidence details. Approval never changes the deterministic ROI model; a future Parameter Copilot must require a separate user acceptance step.
+小规模原型无需 PubMed API Key。每次搜索最多返回若干条记录，结果会缓存一小时。如果网络不可用，可以使用页面中明确标注的离线演示数据。
 
-## Parameter Copilot
+PubMed 主要适用于筛查效果、癌症检出率、召回率和分期变化等临床研究。发病率和分期分布更适合参考 SEER，医疗成本应优先使用医院财务数据或 CMS，筛查年龄与频率应参考权威指南。
 
-The **Parameter Copilot** reads only Approved Library records. Its deterministic evidence gate distinguishes directly usable evidence, conversion-required effects, relevant-but-insufficient evidence, and parameters with no approved evidence. Users must Keep, Accept, Edit, or Reset each value with a required decision note. Confirmed values and an append-only audit trail are stored separately in `data/parameter_decisions.csv` and `data/parameter_decision_audit.jsonl`.
+## AI 循证分析
 
-The ROI page applies only human-confirmed final values and labels how many Copilot decisions are active. Evidence approval never equals parameter acceptance, and the LLM still performs no ROI mathematics.
+AI 可以基于当前检索到的 PubMed 摘要回答问题、总结证据并生成参数建议。所有实时回答都必须通过本地校验：
 
-## Executive Report Generator
+- 引用的 PMID 必须属于当前检索结果；
+- 引用片段必须真实存在于对应摘要中；
+- 证据不足时必须明确说明“证据不足”；
+- AI 不得编造 PMID；
+- AI 不参与或修改 ROI 数学计算。
 
-The **Executive report** page reads the exact current-session ROI snapshot and human-approved Care Gap Library records. Live AI returns a structured draft; verified demo mode makes no API call. Before display and again before approval, deterministic validators require an exact ROI snapshot, approved PMIDs, and excerpts found in the approved records. The report remains a Draft until a reviewer supplies an approval note. Approved reports and append-only lifecycle events are saved under `data/` and can be downloaded as JSON.
+启用实时 AI 时，将 `.streamlit/secrets.toml.example` 复制为 `.streamlit/secrets.toml`，填入自己的 OpenAI API Key，然后重启 Streamlit。真正的密钥文件已被 Git 忽略，不会上传到 GitHub。验证演示模式不需要 API Key，也不会调用大模型。
 
-## Synthetic model evaluation and risk prioritization
+## 证据提取与价值库
 
-**Model performance** creates a reproducible, fully synthetic cohort and evaluates a care-gap detection score with sensitivity, specificity, precision, accuracy, F1, a confusion matrix, and threshold trade-offs. The demo ground-truth rule defines a screening gap as at least two years since the last screen. All patient IDs begin with `SYN-`; no PHI or HDR records are used.
+系统可以把 PubMed 摘要转换成结构化证据候选，包括研究设计、目标人群、干预、对照、结局、效应量、置信区间、对应 ROI 参数和局限性。PMID、标题、引用片段及报告数值均需通过本地校验。
 
-**Risk prioritization** compares the expected impact of random outreach with a transparent priority score when outreach capacity is limited. Its financial simulation reuses the active deterministic ROI inputs for annualized screening cost, expected follow-up cost, and stage-shift savings per detected case. Random outreach is averaged over repeated Monte Carlo trials. These are synthetic scenario estimates, not observed program results.
+只有经过人工审核的记录才能进入 Care Gap Value Library。证据获得批准并不代表参数会自动进入 ROI 模型；参数仍需单独确认，以避免不适用的研究结果直接影响业务计算。
 
-## Data intake and quality gate
+## 参数确认
 
-The **Data intake** page accepts the standard patient-level CSV schema or the bundled 10,000-row synthetic test file. Deterministic checks cover required columns, parseability, missing values, duplicate identifiers, age and probability ranges, synthetic-data marking, and sample size. A reviewer note is mandatory before a passing dataset becomes available to Model performance and Risk prioritization. Uploads remain in the current Streamlit session; unmarked datasets have patient IDs replaced by local one-way hashes before downstream use. This MVP does not persist uploaded patient-level data or connect to an EHR/HDR.
+参数建议模块只读取已经批准的证据记录，并区分：
 
-## Formula map
+- 可直接使用的数值证据；
+- 需要换算的效应量；
+- 相关但不足以给出数值的证据；
+- 没有已批准证据的参数。
 
-- Additional screened = population × max(target rate − current rate, 0)
-- Detected cases = additional screened × detection rate / 1,000 × age adjustment factor
-- Age adjustment factor = selected age-band incidence / 239.8
-- Lives saved = additional screened × lives saved per 1,000 / 1,000
-- Stage-shift savings/case = regional share × regional shift × (regional cost − localized cost) + distant share × distant shift × (distant cost − regional cost)
-- Treatment cost avoided = detected cases × stage-shift savings/case
-- Screening cost = additional screened × mammography cost / screening interval
-- Follow-up cost = additional screened × recall rate × completion rate × follow-up cost
-- Net savings = treatment cost avoided − screening cost − follow-up cost
-- ROI = net savings / (screening cost + follow-up cost)
+用户可以保留原值、接受建议值、手动编辑或重置参数。ROI 页面只采用人工确认后的最终值。证据批准不等于参数确认，大模型始终不负责 ROI 计算。
 
-## Important interpretation notes
+## 高级 ROI 仿真
 
-- The original model calls `lives_saved_per_1000` a workbook evidence input but does not encode a time horizon or causal derivation.
-- Breast incidence is used only as a relative age adjustment to the detection rate; the model does not calculate cases directly from incidence per 100,000.
-- With “unknown excluded,” known-stage percentages are divided by 100 but not renormalized. This preserves the R behavior exactly.
-- The baseline shown by the original Shiny app is the first reactive state captured at session start. This Streamlit version uses the documented R defaults as a stable comparison baseline.
-- Negative incremental screening is retained as a reported percentage-point change, but downstream incremental volumes are clamped to zero, matching R.
+高级 ROI 仿真用于分析师复核参数、进行 What-if 场景比较及敏感性分析。普通用户建议优先使用 AI 决策助手。
+
+当前模型范围为：**40–74 岁女性 DBT／三维乳腺 X 线摄影筛查**。当前版本不将数字乳腺摄影、MRI 或超声直接混入同一套 ROI 参数体系。
+
+## 管理层报告
+
+管理层报告模块读取当前会话中锁定的 ROI 快照和已批准证据。实时 AI 生成结构化报告草稿，演示模式不会调用 API。报告展示前需通过确定性校验，保证核心数字能够追溯到 ROI 输出，引用能够追溯到已批准证据。
+
+报告应清楚区分：
+
+- 确定性模型输出；
+- 文献支持的结论；
+- 场景假设；
+- 证据局限；
+- 建议的下一步行动。
+
+报告草稿不等于已经批准的业务结论，也不能承诺真实世界一定实现相同的临床收益或财务节省。
+
+## 数据接入与质量检查
+
+数据接入页面支持标准患者级 CSV 或内置的 10,000 行合成测试数据。系统检查必填字段、日期和布尔值是否可解析、缺失值、重复患者 ID、年龄范围、合成数据标识及样本量。
+
+上传数据仅保留在当前 Streamlit 会话中。本 MVP 不持久化患者级数据，也不连接真实电子病历系统（EHR）或健康数据仓库（HDR）。未标记为合成数据的数据在用于下游分析前，会将患者 ID 替换为本地单向哈希值。
+
+## 风险优先级
+
+当外展资源有限时，风险优先级模块会对目标人群进行排序，并比较随机联系与风险优先联系的预期效果。系统仅生成建议名单，不会自动联系患者。
+
+当前优先级分数由透明规则组成：
+
+- 60%：Care Gap 分数；
+- 25%：距上次筛查时间的标准化分数；
+- 15%：预计完成筛查概率。
+
+相关结果属于合成场景估计，不是医院真实运营结果。
+
+## Care Gap 识别评估
+
+模型性能页面使用合成数据评估 Care Gap 识别规则，展示敏感度、特异度、精确率、准确率、F1 分数和混淆矩阵。演示真值规则将“距离上次筛查至少两年”定义为筛查逾期。
+
+这些指标评估的是 Care Gap 识别规则，不是大模型问答质量，也不能当作真实医院数据上的模型表现。所有合成患者 ID 均以 `SYN-` 开头，不包含真实患者隐私信息。
+
+## 核心公式
+
+- 新增筛查人数 = 目标人群规模 × max（目标筛查率 − 当前筛查率，0）
+- 检出病例数 = 新增筛查人数 × 每千次筛查检出率 ÷ 1,000 × 年龄调整系数
+- 年龄调整系数 = 所选年龄段每 10 万人乳腺癌发病率 ÷ 239.8
+- 挽救生命数 = 新增筛查人数 × 每千次筛查挽救生命数 ÷ 1,000
+- 单病例阶段转移节省 = 区域期占比 × 区域期转移比例 ×（区域期成本 − 局限期成本）＋远处期占比 × 远处期转移比例 ×（远处期成本 − 区域期成本）
+- 避免治疗成本 = 检出病例数 × 单病例阶段转移节省
+- 筛查成本 = 新增筛查人数 × 单次筛查成本 ÷ 筛查间隔
+- 后续检查成本 = 新增筛查人数 × 召回率 × 随访完成率 × 单次召回随访成本
+- 净节省 = 避免治疗成本 − 筛查成本 − 后续检查成本
+- ROI = 净节省 ÷（筛查成本＋后续检查成本）
+
+其中，`239.8` 是原始 R 模型采用的 50–54 岁女性乳腺癌参考发病率，单位为“每 10 万人 239.8 例”。它只用于相对年龄校正，并不是直接计算病例数的概率。
+
+## 重要解读说明
+
+- 原始模型将 `lives_saved_per_1000` 作为工作簿证据输入，但没有在代码中明确时间范围或因果推导过程。
+- 乳腺癌发病率只用于对检出率进行相对年龄调整；模型不会直接根据每 10 万人的发病率计算病例数。
+- 选择“排除未知分期”时，已知分期百分比除以 100，但不重新归一化，以保持与原 R 模型完全一致。
+- 原始 Shiny 应用中的基线是会话启动时捕获的第一个响应状态；Streamlit 版本使用文档中记录的 R 默认值作为稳定比较基线。
+- 当目标筛查率低于当前筛查率时，页面仍会报告筛查率的负向百分点变化，但下游新增筛查量会限制为 0，与原 R 模型一致。
+- 平台输出属于决策支持和场景模拟，不构成医疗建议，也不代表已实现的真实临床或财务结果。
