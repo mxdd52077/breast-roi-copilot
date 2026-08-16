@@ -65,11 +65,10 @@ def generate_report_with_openai(
                         {
                             "role": "user",
                             "content": (
-                                "The previous draft failed deterministic validation: "
-                                f"{exc} Regenerate the complete report. Copy narrative "
-                                "numbers only from ROI_INPUTS or ROI_OUTPUT, using only the "
-                                "permitted display rounding. Do not estimate, recompute, or "
-                                "introduce any additional number."
+                                "上一版报告未通过确定性校验："
+                                f"{exc} 请重新生成完整报告。正文数字只能复制自 "
+                                "ROI_INPUTS 或 ROI_OUTPUT，并且只能使用允许的展示性"
+                                "四舍五入。不得估算、重算或增加任何其他数字。"
                             ),
                         }
                     )

@@ -29,7 +29,7 @@ def build_demo_report(
             ]
             cited_pmids = [pmid]
             interpretation = (
-                f"当前有一条经人工批准的证据记录（PMID {pmid}）；其适用性仍受研究人群与既有研究局限约束。"
+                f"该证据（PMID {pmid}）未直接验证本场景的ROI或关键参数，因此不纳入管理层主结论，详细记录保留在证据附录。"
                 if zh else
                 f"One human-approved evidence record is available (PMID {pmid}); its applicability remains subject to the documented population and study limitations."
             )
@@ -38,8 +38,8 @@ def build_demo_report(
         return ExecutiveReport(
             audience=audience,
             executive_summary=(
-                f"确定性场景预计新增筛查 {roi_output['additional_screened']:,.0f} 人，模型 ROI 为 {roi_text}。"
-                "以上均为模型输出，不代表对实际结果的保证。"
+                f"当前结果支持进入小范围试点验证：确定性场景预计新增筛查 {roi_output['additional_screened']:,.0f} 人，"
+                f"模型 ROI 为 {roi_text}。正式扩大投入前，应先用本地运营与成本数据验证关键假设。"
             ),
             clinical_impact=(
                 f"在既定假设下，模型预计检出乳腺癌病例 {roi_output['detected_breast_cancer_cases']:.1f} 例，"
@@ -55,12 +55,14 @@ def build_demo_report(
                 "参数助手建议只有经过人工确认后才能进入模型。",
             ],
             limitations=[
-                "本工具为场景模型，不能证明实际临床或财务结果。",
-                "仅基于摘要的证据可能无法提供可直接迁移的效应量。",
+                "结果来自确定性场景模型，尚未经过本地真实实施数据验证。",
+                "关键结果会受到实际筛查参与、召回、随访完成和本地成本变化影响。",
             ],
             recommended_actions=[
-                "与临床、财务和支付方相关人员共同审核全部假设。",
-                "在将场景用于规划前进行敏感性分析。",
+                "运营团队先核对本地筛查成本、召回率和随访完成率，并锁定试点参数。",
+                "选择限定门诊或目标人群开展小范围试点，记录实际触达、筛查、召回、随访与成本。",
+                "财务与运营团队将试点实绩和模型预测并排复盘，识别偏差最大的参数。",
+                "管理层根据试点结果作出扩大、调整或停止的阶段性决策。",
             ],
             evidence_claims=evidence_claims,
             cited_pmids=cited_pmids,

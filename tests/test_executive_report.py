@@ -91,6 +91,6 @@ def test_structured_output_schema_has_no_dynamic_object_fields():
 
 
 def test_report_prompt_separates_machine_precision_from_narrative_formatting():
-    assert "Keep full machine precision only in simulation_snapshot" in SYSTEM_PROMPT
-    assert "ROI as a percentage with one decimal" in SYSTEM_PROMPT
+    assert "完整机器精度只能出现在 simulation_snapshot" in SYSTEM_PROMPT
+    assert "ROI 按百分比保留 1 位小数" in SYSTEM_PROMPT
     assert "排除未知分期" in SYSTEM_PROMPT
